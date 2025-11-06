@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos 
+# Estilos (mantenemos el tema oscuro y los acentos cian/magenta)
 st.markdown("""
     <style>
     /* Estilo del título y acentos */
@@ -75,16 +75,17 @@ final_pipeline = load_model(MODELO_FILE)
 # =============================================================================
 
 # Lista EXACTA de columnas que el pipeline espera recibir (ORDEN Y NOMBRE EXACTOS)
+# Hemos corregido 'Potencia (CV)' por 'CV' y añadido 'Combustible'
 COLUMNAS_ESPERADAS = [
-    'Marca', 'Potencia (CV)', 'Año', 'Popularidad', 'Consumo Ciudad', 
+    'Marca', 'CV', 'Año', 'Popularidad', 'Consumo Ciudad', 
     'Consumo Carretera', 'Cilindros', 'Tamaño', 'Transmisión', 
-    'Puertas', 'Tracción', 'Mercado', 'Estilo'
+    'Puertas', 'Tracción', 'Mercado', 'Estilo', 'Combustible'
 ]
 
-# Valores por defecto para las 13 columnas. Usaremos valores promedio o frecuentes.
+# Valores por defecto para todas las columnas
 VALORES_DEFECTO = {
     # Numéricos por defecto 
-    'Potencia (CV)': 150, 
+    'CV': 150, # Potencia
     'Año': 2018, 
     'Popularidad': 1000, 
     'Consumo Ciudad': 20, 
@@ -98,7 +99,8 @@ VALORES_DEFECTO = {
     'Transmisión': 'Automática', 
     'Tracción': 'Delantera', 
     'Mercado': 'Lujo',
-    'Estilo': 'Sedan', 
+    'Estilo': 'Sedan',
+    'Combustible': 'Gasolina', # Nuevo valor por defecto
 }
 
 # Opciones de selección (Ajusta estas listas si tus categorías son diferentes)
@@ -109,6 +111,7 @@ ESTILOS = ['Sedan', 'SUV', 'Coupe', 'Wagon', 'Hatchback']
 TRACCIONES = ['Delantera', 'Trasera', 'AWD']
 CILINDROS = [4, 6, 8]
 PUERTAS = [2, 4]
+COMBUSTIBLES = ['Gasolina', 'Diesel', 'Híbrido'] # Añadido Combustible
 
 
 # =============================================================================
@@ -126,11 +129,13 @@ if final_pipeline:
 
     # Inputs directos para el usuario
     user_marca = st.sidebar.selectbox("Marca", MARCAS, index=0)
-    user_potencia = st.sidebar.slider("Potencia (CV)", min_value=50, max_value=600, value=150, step=10)
+    # Cambio: Ahora la potencia se pide como 'CV'
+    user_cv = st.sidebar.slider("Potencia (CV)", min_value=50, max_value=600, value=150, step=10)
     user_antiguedad = st.sidebar.slider("Antigüedad (Años)", min_value=0, max_value=25, value=5, step=1)
     
     # Inputs secundarios
     st.sidebar.subheader("Otras Especificaciones")
+    user_combustible = st.sidebar.selectbox("Tipo de Combustible", COMBUSTIBLES) # Nuevo Input
     user_transmision = st.sidebar.selectbox("Transmisión", TRANSMISIONES)
     user_estilo = st.sidebar.selectbox("Estilo de Carrocería", ESTILOS)
     user_traccion = st.sidebar.selectbox("Tracción", TRACCIONES)
@@ -151,13 +156,14 @@ if final_pipeline:
     datos_usuario_input = {
         # Variables de Usuario
         'Marca': user_marca,
-        'Potencia (CV)': user_potencia,
+        'CV': user_cv, # Usamos 'CV' para coincidir con el error
         'Año': user_year, 
         'Transmisión': user_transmision,
         'Estilo': user_estilo,
         'Tracción': user_traccion,
         'Cilindros': user_cilindros,
         'Puertas': user_puertas,
+        'Combustible': user_combustible, # Nuevo dato de usuario
         
         # Variables de Relleno (Defaults) para que el DataFrame esté completo
         'Popularidad': VALORES_DEFECTO['Popularidad'],
@@ -188,7 +194,7 @@ if final_pipeline:
                           help="Precio competitivo basado en las características del vehículo.")
                 
                 # Mensaje de información
-                st.info(f"Modelo tasado: {df_prediccion['Marca'].iloc[0]} | {df_prediccion['Potencia (CV)'].iloc[0]} CV | Antigüedad: {user_antiguedad} años")
+                st.info(f"Modelo tasado: {df_prediccion['Marca'].iloc[0]} | {df_prediccion['CV'].iloc[0]} CV | Antigüedad: {user_antiguedad} años")
 
 
             except Exception as e:
