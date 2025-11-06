@@ -1,171 +1,202 @@
 # -*- coding: utf-8 -*-
-"""
-FINAL_APP.PY: Aplicación Web Mínima Viable (MVP) para la Tasación de Vehículos.
-Utiliza Streamlit para la interfaz de usuario y carga el modelo entrenado
-para realizar predicciones en tiempo real.
-"""
-
 import streamlit as st
-import joblib
 import pandas as pd
+import joblib
+from datetime import datetime
+import os
 import numpy as np
 
-# --- 1. CARGA DEL MODELO Y RECURSOS ---
-# El modelo completo (pipeline + estimador) fue guardado en la fase de entrenamiento.
-# ¡IMPORTANTE!: Este archivo 'modelo_tasacion_valtel.pkl' debe estar en el mismo repositorio de GitHub.
-try:
-    pipeline = joblib.load('modelo_tasacion_valtel.pkl')
-    st.session_state['model_loaded'] = True
-except FileNotFoundError:
-    st.session_state['model_loaded'] = False
-    st.error("Error: El archivo 'modelo_tasacion_valtel.pkl' no fue encontrado. Asegúrese de que el modelo entrenado esté en el repositorio.")
-
-# Definir las categorías que el modelo espera (ejemplo basado en variables comunes)
-TRANSMISION_OPCIONES = ['Automática', 'Manual']
-COMBUSTIBLE_OPCIONES = ['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico']
-MARCA_OPCIONES = ['Mercedes', 'BMW', 'Audi', 'Volkswagen', 'Ford', 'Otro'] # Ejemplo de marcas
-
-# --- 2. CONFIGURACIÓN DE LA PÁGINA (Estilo y Título) ---
+# =============================================================================
+# CONFIGURACIÓN INICIAL Y ESTILOS
+# =============================================================================
 st.set_page_config(
-    page_title="VALTEL: Tasador Predictivo de Vehículos",
+    page_title="Tasador Predictivo VALTEL",
+    page_icon="🚗",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# Estilo NEON Suave (usando Markdown para inyección de CSS)
+# Estilos 
 st.markdown("""
     <style>
-    .reportview-container {
-        background: #0e1117; /* Fondo oscuro */
+    /* Estilo del título y acentos */
+    .big-title {
+        color: #00FFFF; /* Cian */
+        font-weight: 700;
+        font-size: 2.2em;
+        padding-bottom: 0.5em;
+        text-align: center;
     }
+    /* Estilo del botón */
     .stButton>button {
-        background-color: #00CCCC; /* Cian Neón */
-        color: black;
+        background-color: #00FFFF;
+        color: #000000;
         font-weight: bold;
         border-radius: 8px;
         padding: 10px 20px;
-        border: 2px solid #00CCCC;
-        transition: 0.3s;
+        transition: all 0.2s ease-in-out;
     }
     .stButton>button:hover {
-        background-color: #CC00CC; /* Magenta Neón en hover */
-        border-color: #CC00CC;
-        color: white;
+        background-color: #FF00FF; /* Magenta */
+        color: #FFFFFF;
+        box-shadow: 0 0 10px #FF00FF;
     }
-    h1 { color: #00CCCC; } /* Título Cian */
-    h2 { color: #CC00CC; } /* Subtítulos Magenta */
-    .stTextInput>div>div>input, .stSelectbox>div>div {
-        border-color: #39CC14; /* Borde verde suave */
-    }
-    .stSuccess {
-        background-color: #0c430c; /* Fondo de éxito oscuro */
-        border-left: 5px solid #39CC14; /* Borde verde brillante */
-        color: white;
+    /* Estilo del resultado (Métrica) */
+    .stMetric > div {
+        background-color: #161B22;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FF00FF; /* Magenta */
     }
     </style>
     """, unsafe_allow_html=True)
 
+# =============================================================================
+# CARGA DEL MODELO (Asegúrate de que el archivo .pkl esté en GitHub)
+# =============================================================================
+MODELO_FILE = 'modelo_tasacion_valtel.pkl'
 
-st.title("VALTEL: Tasador Predictivo - Demo")
-st.markdown("Herramienta desarrollada con **XGBoost Regressor** ($R^2=0.9706$)")
+@st.cache_resource
+def load_model(file_path):
+    """Carga el pipeline de Machine Learning usando joblib."""
+    try:
+        if not os.path.exists(file_path):
+            return None
+        pipeline = joblib.load(file_path)
+        return pipeline
+    except Exception as e:
+        st.error(f"Error al cargar el modelo. ¿Está 'modelo_tasacion_valtel.pkl' subido? Detalle: {e}")
+        return None
 
-# --- 3. FORMULARIO DE ENTRADA DE DATOS ---
-if st.session_state['model_loaded']:
-    with st.form(key='tasacion_form'):
-        st.header("Características del Vehículo")
+final_pipeline = load_model(MODELO_FILE)
+
+# =============================================================================
+# DEFINICIÓN DE VARIABLES Y VALORES (CLAVE PARA EL ERROR DE COLUMNAS)
+# =============================================================================
+
+# Lista EXACTA de columnas que el pipeline espera recibir (ORDEN Y NOMBRE EXACTOS)
+COLUMNAS_ESPERADAS = [
+    'Marca', 'Potencia (CV)', 'Año', 'Popularidad', 'Consumo Ciudad', 
+    'Consumo Carretera', 'Cilindros', 'Tamaño', 'Transmisión', 
+    'Puertas', 'Tracción', 'Mercado', 'Estilo'
+]
+
+# Valores por defecto para las 13 columnas. Usaremos valores promedio o frecuentes.
+VALORES_DEFECTO = {
+    # Numéricos por defecto 
+    'Potencia (CV)': 150, 
+    'Año': 2018, 
+    'Popularidad': 1000, 
+    'Consumo Ciudad': 20, 
+    'Consumo Carretera': 25,
+    'Cilindros': 4,
+    'Puertas': 4,
+    
+    # Categóricos por defecto 
+    'Marca': 'Otro', 
+    'Tamaño': 'Midsize', 
+    'Transmisión': 'Automática', 
+    'Tracción': 'Delantera', 
+    'Mercado': 'Lujo',
+    'Estilo': 'Sedan', 
+}
+
+# Opciones de selección (Ajusta estas listas si tus categorías son diferentes)
+MARCAS = ['Audi', 'BMW', 'Chevrolet', 'Nissan', 'Toyota', 'Ford', 'Honda', 'Otro'] 
+TAMAÑOS = ['Compact', 'Midsize', 'Large']
+TRANSMISIONES = ['Automática', 'Manual']
+ESTILOS = ['Sedan', 'SUV', 'Coupe', 'Wagon', 'Hatchback']
+TRACCIONES = ['Delantera', 'Trasera', 'AWD']
+CILINDROS = [4, 6, 8]
+PUERTAS = [2, 4]
+
+
+# =============================================================================
+# INTERFAZ Y LÓGICA DE PREDICCIÓN
+# =============================================================================
+
+st.markdown('<div class="big-title">🚗 Tasador Predictivo VALTEL</div>', unsafe_allow_html=True)
+st.write("Estime el precio de un vehículo de segunda mano para elaborar ofertas competitivas.")
+
+
+if final_pipeline:
+    
+    # ------------------ SIDEBAR: INPUTS DEL USUARIO ------------------
+    st.sidebar.header("🔧 Parámetros del Vehículo")
+
+    # Inputs directos para el usuario
+    user_marca = st.sidebar.selectbox("Marca", MARCAS, index=0)
+    user_potencia = st.sidebar.slider("Potencia (CV)", min_value=50, max_value=600, value=150, step=10)
+    user_antiguedad = st.sidebar.slider("Antigüedad (Años)", min_value=0, max_value=25, value=5, step=1)
+    
+    # Inputs secundarios
+    st.sidebar.subheader("Otras Especificaciones")
+    user_transmision = st.sidebar.selectbox("Transmisión", TRANSMISIONES)
+    user_estilo = st.sidebar.selectbox("Estilo de Carrocería", ESTILOS)
+    user_traccion = st.sidebar.selectbox("Tracción", TRACCIONES)
+    
+    # Inputs de números discretos
+    user_cilindros = st.sidebar.selectbox("Cilindros", CILINDROS, index=CILINDROS.index(VALORES_DEFECTO['Cilindros']) if VALORES_DEFECTO['Cilindros'] in CILINDROS else 0)
+    user_puertas = st.sidebar.selectbox("Puertas", PUERTAS, index=PUERTAS.index(VALORES_DEFECTO['Puertas']) if VALORES_DEFECTO['Puertas'] in PUERTAS else 0)
+
+
+    # ------------------ CONSTRUCCIÓN DEL DATAFRAME ------------------
+
+    # 1. Calcular el Año (Modelo espera 'Año', no 'Antigüedad')
+    current_year = datetime.now().year
+    user_year = current_year - user_antiguedad
+    
+    
+    # 2. Recopilar datos del usuario y valores por defecto
+    datos_usuario_input = {
+        # Variables de Usuario
+        'Marca': user_marca,
+        'Potencia (CV)': user_potencia,
+        'Año': user_year, 
+        'Transmisión': user_transmision,
+        'Estilo': user_estilo,
+        'Tracción': user_traccion,
+        'Cilindros': user_cilindros,
+        'Puertas': user_puertas,
         
-        # Columna 1: Variables Continuas (Las más Importantes)
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # 1. Potencia (CV) - Factor más importante según la Diapositiva 5/6
-            cv = st.number_input(
-                "Potencia (CV):",
-                min_value=50, max_value=800, value=150, step=10,
-                help="El factor más influyente en el precio (65% de importancia)."
-            )
-            
-            # 2. Antigüedad (Años) - Segundo factor más importante
-            antiguedad = st.slider(
-                "Antigüedad (Años):",
-                min_value=0, max_value=20, value=3, step=1,
-                help="Depreciación: Años desde la primera matriculación."
-            )
-
-        with col2:
-            # 3. Kilometraje (Km) - Factor menos importante
-            kilometraje = st.number_input(
-                "Kilometraje (Km):",
-                min_value=100, max_value=500000, value=50000, step=1000,
-                help="Kilómetros recorridos."
-            )
-
-            # 4. Marca (Variable categórica) - Asumimos que incluimos la marca en el modelo
-            marca = st.selectbox(
-                "Marca del Vehículo:",
-                options=MARCA_OPCIONES,
-                index=3,
-                help="La marca influye debido al valor residual."
-            )
-
-        st.subheader("Otras Características")
-        col3, col4 = st.columns(2)
-
-        with col3:
-            # 5. Transmisión - Factor clave en la gama del vehículo
-            transmision = st.radio(
-                "Tipo de Transmisión:",
-                options=TRANSMISION_OPCIONES,
-                index=0,
-                help="Automática vs Manual."
-            )
-        
-        with col4:
-            # 6. Combustible
-            combustible = st.selectbox(
-                "Tipo de Combustible:",
-                options=COMBUSTIBLE_OPCIONES,
-                index=0
-            )
+        # Variables de Relleno (Defaults) para que el DataFrame esté completo
+        'Popularidad': VALORES_DEFECTO['Popularidad'],
+        'Consumo Ciudad': VALORES_DEFECTO['Consumo Ciudad'],
+        'Consumo Carretera': VALORES_DEFECTO['Consumo Carretera'],
+        'Tamaño': VALORES_DEFECTO['Tamaño'],
+        'Mercado': VALORES_DEFECTO['Mercado'],
+    }
+    
+    # 3. Construir el DataFrame con TODAS las columnas y el ORDEN correcto
+    df_prediccion = pd.DataFrame([datos_usuario_input], columns=COLUMNAS_ESPERADAS)
 
 
-        # Botón para enviar la solicitud
-        submit_button = st.form_submit_button(label='TASAR VEHÍCULO 🚀')
+    # ------------------ CÁLCULO Y PREDICCIÓN ------------------
 
-        # --- 4. LÓGICA DE PREDICCIÓN ---
-        if submit_button:
-            # 1. Crear el DataFrame de entrada (Debe coincidir EXACTAMENTE con el formato de entrenamiento)
-            # Adaptar esto según el nombre exacto de las columnas en su modelo.
-            datos_entrada = pd.DataFrame({
-                'CV': [cv],
-                'Antiguedad': [antiguedad],
-                'Kilometraje': [kilometraje],
-                'Transmision': [transmision],
-                'Combustible': [combustible],
-                'Marca': [marca], # Asumimos que 'Marca' fue codificada en el Pipeline
-            })
-            
-            # 2. Realizar la Predicción
+    st.markdown("---")
+    
+    if st.button('Calcular Precio de Tasación', use_container_width=True):
+        with st.spinner('Realizando tasación...'):
             try:
-                prediccion = pipeline.predict(datos_entrada)[0]
+                # El pipeline recibe el DataFrame con TODAS las columnas necesarias
+                precio_predicho = final_pipeline.predict(df_prediccion)[0]
                 
-                # 3. Mostrar Resultado
-                precio_formateado = f"€{prediccion:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                # Presentar el resultado
+                st.subheader("💰 Resultado de la Tasación")
+                st.metric("Precio de Venta Estimado", 
+                          f"€ {precio_predicho:,.0f}", 
+                          help="Precio competitivo basado en las características del vehículo.")
                 
-                st.success("✅ Tasación Realizada con Éxito")
-                st.balloons() # Pequeña celebración
+                # Mensaje de información
+                st.info(f"Modelo tasado: {df_prediccion['Marca'].iloc[0]} | {df_prediccion['Potencia (CV)'].iloc[0]} CV | Antigüedad: {user_antiguedad} años")
 
-                st.markdown(f"""
-                <div style="text-align: center; padding: 20px; border: 3px solid #39CC14; border-radius: 10px; background-color: rgba(0, 50, 0, 0.4);">
-                    <h2 style="color: #FFFFFF; margin-bottom: 0px;">PRECIO ESTIMADO DE VENTA</h2>
-                    <h1 style="font-size: 4em; color: #CC00CC; margin-top: 5px;">{precio_formateado}</h1>
-                    <p style="color: #FFFFFF; font-size: 0.9em;">Basado en nuestro modelo XGBoost (Error medio de ±9.639 €)</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
+
             except Exception as e:
-                st.error(f"Error al predecir. El modelo puede no estar recibiendo los datos esperados: {e}")
+                # Manejo de errores de predicción
+                st.error("Error al predecir. Esto puede deberse a un valor que no existía en los datos de entrenamiento.")
+                st.exception(e)
+                st.write("DataFrame enviado (Debugging):")
+                st.dataframe(df_prediccion)
 
-# --- 5. MENSAJE SI EL MODELO NO CARGA ---
 else:
-    st.warning("⚠️ No se puede cargar la aplicación porque el modelo no se encontró.")
+    st.warning("La aplicación no puede funcionar. Por favor, asegúrese de que el archivo 'modelo_tasacion_valtel.pkl' exista y sea accesible en el repositorio de GitHub.")
