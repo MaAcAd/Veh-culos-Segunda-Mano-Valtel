@@ -220,4 +220,4 @@ if final_pipeline and btn_predict:
         }
         
         # 3. Construir el DataFrame, ajustando las columnas esperadas al modelo
-        df_prediccion = pd.DataFrame([datos
+        df_prediccion = pd.DataFrame([datos_usuario_input], columns=COLUMNAS_ESPERADAS + ['Tracción']) # Línea 223 original
