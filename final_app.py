@@ -7,24 +7,23 @@ import os
 import numpy as np
 
 # =============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILO (Basado en la Presentación de Canva)
+# CONFIGURACIÓN DE PÁGINA Y ESTILO (Basado en la Paleta VALTEL)
 # =============================================================================
 st.set_page_config(
     page_title="Tasador VALTEL",
     page_icon="🚗",
-    layout="wide",  # Usamos layout ancho para un look más profesional
+    layout="centered", # De vuelta al layout centrado para un look de app simple
     initial_sidebar_state="expanded"
 )
 
-# Paleta de Colores Extraída de la Presentación
+# Paleta de Colores Extraída
 COLOR_BACKGROUND = "#0a090f" # Negro/Gris muy oscuro
-COLOR_BACKGROUND_SIDEBAR = "#101015" # Un poco más claro
-COLOR_TEXT = "#FAFAFA" # Blanco
-COLOR_PRIMARY_ACCENT = "#F3B71D" # Amarillo/Dorado (del gráfico de Tarta)
-COLOR_SECONDARY_ACCENT = "#40BCD8" # Cián/Turquesa (del gráfico de Tarta)
-COLOR_TERTIARY_ACCENT = "#E020F5" # Magenta (del gráfico de Tarta)
+COLOR_BACKGROUND_SIDEBAR = "#101015"
+COLOR_TEXT = "#FAFAFA"
+COLOR_PRIMARY_ACCENT = "#F3B71D" # AMARILLO/DORADO (Acento principal)
+COLOR_SECONDARY_ACCENT = "#40BCD8" # Cián
 
-# Inyección de CSS para un diseño personalizado
+# Inyección de CSS para un diseño limpio y enfocado
 st.markdown(f"""
     <style>
     /* Fondo principal y de la app */
@@ -35,25 +34,20 @@ st.markdown(f"""
     /* Barra lateral */
     [data-testid="stSidebar"] {{
         background-color: {COLOR_BACKGROUND_SIDEBAR};
-        border-right: 1px solid {COLOR_PRIMARY_ACCENT};
+        border-right: 3px solid {COLOR_PRIMARY_ACCENT}; /* Borde más grueso y en acento */
     }}
-    [data-testid="stSidebar"] h2 {{
-        color: {COLOR_SECONDARY_ACCENT}; /* Título de la sidebar en Cián */
+    [data-testid="stSidebar"] h2, .css-j7q09m {{
+        color: {COLOR_PRIMARY_ACCENT}; /* Título de la sidebar en Amarillo */
+        font-weight: 600;
     }}
     
-    /* Título Principal */
-    .title-text {{
-        color: {COLOR_PRIMARY_ACCENT}; /* Título en Amarillo/Dorado */
+    /* Título Principal (Centrado y en color de acento) */
+    .big-title {{
+        color: {COLOR_PRIMARY_ACCENT};
         font-size: 2.5em;
-        font-weight: 700;
-        padding-bottom: 0.2em;
-    }}
-    /* Subtítulo (Autor) */
-    .author-text {{
-        color: {COLOR_TEXT};
-        font-size: 1.2em;
-        font-style: italic;
-        margin-bottom: 20px;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 0.5em;
     }}
     
     /* Botón de Predicción */
@@ -69,25 +63,29 @@ st.markdown(f"""
         transition: all 0.2s ease-in-out;
     }}
     .stButton>button:hover {{
-        background-color: {COLOR_TERTIARY_ACCENT}; /* Hover en Magenta */
-        color: {COLOR_TEXT}; /* Texto blanco en hover */
-        box-shadow: 0 0 15px {COLOR_TERTIARY_ACCENT};
+        background-color: #FF00FF; /* Usamos Magenta para el hover */
+        color: {COLOR_TEXT};
+        box-shadow: 0 0 15px #FF00FF;
     }}
     
     /* Resultado de la Métrica */
     [data-testid="stMetric"] {{
-        background-color: #1A1A1A;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 7px solid {COLOR_PRIMARY_ACCENT}; /* Borde Amarillo */
+        margin-top: 50px;
+        background-color: #1A1A1A; /* Un gris oscuro para el contenedor */
+        padding: 30px;
+        border-radius: 12px;
+        border: 1px solid {COLOR_PRIMARY_ACCENT};
+        box-shadow: 0 4px 15px rgba(243, 183, 29, 0.4); /* Sombra suave de acento */
+        text-align: center;
     }}
     [data-testid="stMetricValue"] {{
-        color: {COLOR_PRIMARY_ACCENT}; /* Valor en Amarillo */
-        font-size: 2.8em;
+        color: {COLOR_PRIMARY_ACCENT}; /* Valor en Amarillo/Dorado */
+        font-size: 3.5em; /* Valor grande */
+        font-weight: 700;
     }}
     [data-testid="stMetricLabel"] {{
-        font-size: 1.2em;
-        color: {COLOR_TEXT};
+        font-size: 1.5em;
+        color: {COLOR_SECONDARY_ACCENT}; /* Etiqueta en Cián */
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -99,6 +97,7 @@ MODELO_FILE = 'modelo_tasacion_valtel.pkl'
 
 @st.cache_resource
 def load_model(file_path):
+    """Carga el pipeline de Machine Learning usando joblib."""
     try:
         if not os.path.exists(file_path):
             return None
@@ -111,7 +110,7 @@ def load_model(file_path):
 final_pipeline = load_model(MODELO_FILE)
 
 # =============================================================================
-# DEFINICIÓN DE VARIABLES Y VALORES (Sin cambios, mantiene la corrección)
+# DEFINICIÓN DE VARIABLES Y VALORES (Sin cambios, manteniendo la funcionalidad)
 # =============================================================================
 COLUMNAS_ESPERADAS = [
     'Marca', 'CV', 'Año', 'Popularidad', 'Consumo Ciudad', 
@@ -125,102 +124,116 @@ VALORES_DEFECTO = {
     'Mercado': 'Lujo', 'Estilo': 'Sedan', 'Combustible': 'Gasolina',
 }
 MARCAS = ['Audi', 'BMW', 'Chevrolet', 'Nissan', 'Toyota', 'Ford', 'Honda', 'Otro'] 
-TAMAÑOS = ['Compact', 'Midsize', 'Large']
 TRANSMISIONES = ['Automática', 'Manual']
 ESTILOS = ['Sedan', 'SUV', 'Coupe', 'Wagon', 'Hatchback']
 TRACCIONES = ['Delantera', 'Trasera', 'AWD']
 CILINDROS = [4, 6, 8]
 PUERTAS = [2, 4]
 COMBUSTIBLES = ['Gasolina', 'Diesel', 'Híbrido']
+TAMAÑOS = ['Compact', 'Midsize', 'Large'] # Aunque no se pide al usuario, es necesario en el DF
 
 # =============================================================================
-# INTERFAZ Y LÓGICA DE PREDICCIÓN (Rediseño de Layout)
+# INTERFAZ Y LÓGICA DE PREDICCIÓN (Demo Enfocada)
 # =============================================================================
 
-# ------------------ TÍTULO Y AUTOR (en la página principal) ------------------
-st.markdown('<div class="title-text">OPTIMIZACIÓN DE PRECIOS VEHICULARES PARA VALTEL</div>', unsafe_allow_html=True)
-st.markdown('<div class="author-text">Un proyecto de: María Aceituno Adrados</div>', unsafe_allow_html=True)
-st.markdown("---")
-
-# Layout de la página principal: 2 columnas
-col1, col2 = st.columns([1.5, 1]) # Columna izquierda más ancha
-
-# ------------------ COLUMNA 1: CONTEXTO DEL PROYECTO ------------------
-with col1:
-    st.subheader("Contexto del Proyecto")
-    st.markdown("""
-    Valtel requiere diversificar su oferta incursionando en el mercado de vehículos de segunda mano para sus clientes (no nacionales).
-    
-    Se requiere un Modelo de Regresión basado en Machine Learning para capturar los patrones complejos del mercado y generar la tarifa competitiva de forma automatizada.
-    """)
-    st.markdown("---")
-    st.subheader("Instrucciones")
-    st.markdown("""
-    1.  Utilice los controles en la **barra lateral (izquierda)** para introducir las características del vehículo.
-    2.  Haga clic en el botón **'Estimar Precio'**.
-    3.  El precio de tasación sugerido aparecerá a la derecha.
-    """)
+# ------------------ PANTALLA PRINCIPAL: TÍTULO Y RESULTADO ------------------
+st.markdown('<div class="big-title">TASADOR PREDICTIVO VALTEL</div>', unsafe_allow_html=True)
+st.write(
+    '<p style="text-align: center; color: #BBB;">Modelo de Regresión para la Tarificación de Vehículos de Segunda Mano.</p>', 
+    unsafe_allow_html=True
+)
 
 
 # ------------------ BARRA LATERAL: INPUTS DEL USUARIO ------------------
-st.sidebar.image("https://i.imgur.com/gQY8XjO.png", width=100) # Un logo genérico de coche
-st.sidebar.header("🔧 Tasador Vehicular")
+st.sidebar.image("https://i.imgur.com/gQY8XjO.png", width=80) # Logo simulado
+st.sidebar.header("🔧 Parámetros del Vehículo")
 
+# Agrupación de inputs en la sidebar
 user_marca = st.sidebar.selectbox("Marca", MARCAS, index=0)
 user_cv = st.sidebar.slider("Potencia (CV)", min_value=50, max_value=600, value=150, step=10)
 user_antiguedad = st.sidebar.slider("Antigüedad (Años)", min_value=0, max_value=25, value=5, step=1)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Especificaciones Adicionales")
+
+# Inputs secundarios
 user_combustible = st.sidebar.selectbox("Tipo de Combustible", COMBUSTIBLES)
 user_transmision = st.sidebar.selectbox("Transmisión", TRANSMISIONES)
 user_estilo = st.sidebar.selectbox("Estilo de Carrocería", ESTILOS)
 user_traccion = st.sidebar.selectbox("Tracción", TRACCIONES)
-user_cilindros = st.sidebar.selectbox("Cilindros", CILINDROS, index=0)
-user_puertas = st.sidebar.selectbox("Puertas", PUERTAS, index=1)
 
-# Botón de predicción al final de la sidebar
-btn_predict = st.sidebar.button('Estimar Precio')
-
-# ------------------ COLUMNA 2: RESULTADO DE LA PREDICCIÓN ------------------
-with col2:
-    st.subheader("Resultado de la Tasación")
+# Inputs de números discretos
+col_cyl, col_doors = st.sidebar.columns(2)
+with col_cyl:
+    user_cilindros = st.selectbox("Cilindros", CILINDROS, index=0, label_visibility="collapsed")
+with col_doors:
+    user_puertas = st.selectbox("Puertas", PUERTAS, index=1, label_visibility="collapsed")
     
-    if final_pipeline and btn_predict:
-        with st.spinner('Calculando...'):
-            # Lógica de construcción del DataFrame (sin cambios)
-            current_year = datetime.now().year
-            user_year = current_year - user_antiguedad
-            
-            datos_usuario_input = {
-                'Marca': user_marca, 'CV': user_cv, 'Año': user_year, 
-                'Transmisión': user_transmision, 'Estilo': user_estilo, 
-                'Tracción': user_traccion, 'Cilindros': user_cilindros, 
-                'Puertas': user_puertas, 'Combustible': user_combustible,
-                
-                # Relleno de defaults
-                'Popularidad': VALORES_DEFECTO['Popularidad'],
-                'Consumo Ciudad': VALORES_DEFECTO['Consumo Ciudad'],
-                'Consumo Carretera': VALORES_DEFECTO['Consumo Carretera'],
-                'Tamaño': VALORES_DEFECTO['Tamaño'],
-                'Mercado': VALORES_DEFECTO['Mercado'],
-            }
-            
-            df_prediccion = pd.DataFrame([datos_usuario_input], columns=COLUMNAS_ESPERADAS)
-            
-            try:
-                # Predicción
-                precio_predicho = final_pipeline.predict(df_prediccion)[0]
-                
-                # Mostrar resultado
-                st.metric("Precio de Venta Sugerido", 
-                          f"€ {precio_predicho:,.0f}", 
-                          help="Estimación basada en el modelo de regresión (R² > 0.90)")
-                
-                st.caption(f"Detalles: {user_marca} | {user_cv} CV | {user_antiguedad} años")
+# Reinsertamos los labels para los selectboxes
+st.sidebar.write("Cilindros:")
+st.sidebar.selectbox("Cilindros", CILINDROS, index=0, key='cyl_key', label_visibility="collapsed")
+st.sidebar.write("Puertas:")
+st.sidebar.selectbox("Puertas", PUERTAS, index=1, key='door_key', label_visibility="collapsed")
 
-            except Exception as e:
-                st.error("Error al predecir.")
-                st.exception(e)
 
-    elif not final_pipeline:
-        st.error("Modelo no cargado. Revise el archivo 'modelo_tasacion_valtel.pkl'.")
-    else:
-        st.info("Introduzca los datos en la barra lateral y haga clic en 'Estimar Precio' para ver el resultado.")
+# ------------------ LÓGICA DE PREDICCIÓN Y RESULTADO ------------------
+
+# Botón de predicción al final de la pantalla (más visible)
+btn_predict = st.button('Estimar Precio de Tasación', use_container_width=True)
+st.markdown("---")
+
+# Contenedor para el resultado
+result_container = st.empty()
+
+if final_pipeline and btn_predict:
+    with st.spinner('Realizando cálculo predictivo...'):
+        # 1. Calcular el Año
+        current_year = datetime.now().year
+        user_year = current_year - user_antiguedad
+        
+        # 2. Recopilar datos y defaults
+        datos_usuario_input = {
+            'Marca': user_marca, 'CV': user_cv, 'Año': user_year, 
+            'Transmisión': user_transmision, 'Estilo': user_estilo, 
+            'Tracción': user_traccion, 'Cilindros': user_cilindros, 
+            'Puertas': user_puertas, 'Combustible': user_combustible,
+            
+            # Relleno de defaults (necesarios para el pipeline)
+            'Popularidad': VALORES_DEFECTO['Popularidad'],
+            'Consumo Ciudad': VALORES_DEFECTO['Consumo Ciudad'],
+            'Consumo Carretera': VALORES_DEFECTO['Consumo Carretera'],
+            'Tamaño': VALORES_DEFECTO['Tamaño'],
+            'Mercado': VALORES_DEFECTO['Mercado'],
+        }
+        
+        # 3. Construir el DataFrame
+        df_prediccion = pd.DataFrame([datos_usuario_input], columns=COLUMNAS_ESPERADAS)
+        
+        try:
+            # 4. Predicción
+            precio_predicho = final_pipeline.predict(df_prediccion)[0]
+            
+            # 5. Mostrar resultado en el contenedor principal
+            result_container.metric(
+                "PRECIO DE VENTA SUGERIDO (EUR)", 
+                f"€ {precio_predicho:,.0f}", 
+                help="Precio estimado por el modelo de Machine Learning."
+            )
+            
+            # Información de resumen debajo del resultado
+            st.markdown(f"""
+                <div style="text-align: center; color: {COLOR_TEXT}; margin-top: 15px;">
+                    <small>Tasando: **{user_marca}** | **{user_cv} CV** | **{user_antiguedad}** años</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+
+        except Exception as e:
+            st.error("Error al predecir. Verifique los parámetros o la consistencia de los datos de entrada.")
+            # st.exception(e) # Comentamos esto para no mostrar el traceback en la demo
+
+elif not final_pipeline:
+    st.warning("El modelo no ha podido ser cargado. Asegúrese de que el archivo .pkl esté correctamente subido.")
+else:
+    # Mensaje inicial antes de la primera predicción
+    result_container.info("Introduzca las especificaciones del vehículo en la barra lateral para generar una estimación de precio instantánea.")
